@@ -7,7 +7,7 @@
 static std::string buf;
 
 static void
-BM_ABSL_STRCAT(benchmark::State &state)
+BM_Absl_StrCat(benchmark::State &state)
 {
   buf.resize(state.range(0));
   for (auto _ : state) {
@@ -33,10 +33,31 @@ BM_StdStrCat(benchmark::State &state)
   }
 }
 
+static void
+BM_MyStrAppend(benchmark::State &state)
+{
+  buf.resize(state.range(0));
+  for (auto _ : state) {
+    std::string s = buf;
+    util::StrAppend(s, buf, buf, buf, buf);
+  }
+}
+
+static void
+BM_Absl_StrAppend(benchmark::State &state)
+{
+  buf.resize(state.range(0));
+  for (auto _ : state) {
+    std::string s = buf;
+    absl::StrAppend(&s, buf, buf, buf, buf);
+  }
+}
 #define BM_STRCAT_DEFINE(func, name) \
   BENCHMARK(func)->Name(name)->RangeMultiplier(10)->Range(10, 100000)
 
-BM_STRCAT_DEFINE(BM_MyStrCat, "util::StrCat large");
-BM_STRCAT_DEFINE(BM_StdStrCat, "std::string operator+ large");
-BM_STRCAT_DEFINE(BM_ABSL_STRCAT, "absl::StrCat large");
+BM_STRCAT_DEFINE(BM_MyStrCat, "util::StrCat");
+BM_STRCAT_DEFINE(BM_StdStrCat, "std::string operator+");
+BM_STRCAT_DEFINE(BM_Absl_StrCat, "absl::StrCat");
+BM_STRCAT_DEFINE(BM_MyStrAppend, "util::StrAppend");
+BM_STRCAT_DEFINE(BM_Absl_StrAppend, "absl::StrAppend");
 BENCHMARK_MAIN();
