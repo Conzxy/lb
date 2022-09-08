@@ -26,24 +26,24 @@ auto HttpResponseParser::Parse(kanon::Buffer &buffer) -> ParseResult
         /* Extract the version message */
         auto space_pos = buffer_view.find(' ');
 
-        if (space_pos == StringView::npos)
-          return PARSE_ERR;
+        if (space_pos == StringView::npos) return PARSE_ERR;
 
         LOG_DEBUG << "Http version: " << buffer_view.substr(0, space_pos);
-        
-        /* Status code */ 
-        auto last_space_pos = space_pos; 
-        space_pos = buffer_view.find(' ', space_pos+1);
-        
-        if (space_pos == StringView::npos)
-          return PARSE_ERR;
-        
-        LOG_DEBUG << "Status code: " << buffer_view.substr_range(last_space_pos+1, space_pos);
-        
-        /* Reason phrase  */ 
+
+        /* Status code */
+        auto last_space_pos = space_pos;
+        space_pos = buffer_view.find(' ', space_pos + 1);
+
+        if (space_pos == StringView::npos) return PARSE_ERR;
+
+        LOG_DEBUG << "Status code: "
+                  << buffer_view.substr_range(last_space_pos + 1, space_pos);
+
+        /* Reason phrase  */
         last_space_pos = space_pos;
 
-        LOG_DEBUG << "Reason phrase: " << buffer_view.substr_range(last_space_pos+1, index);
+        LOG_DEBUG << "Reason phrase: "
+                  << buffer_view.substr_range(last_space_pos + 1, index);
 
         index_ = index + 2;
         LOG_TRACE << "HEADERS";
@@ -90,17 +90,17 @@ auto HttpResponseParser::Parse(kanon::Buffer &buffer) -> ParseResult
       if (content_length_ > 0) {
         if (buffer.GetReadableSize() - index_ >= content_length_) {
           index_ += content_length_;
-          ContentLengthReset();
           /* reset */
-          LOG_TRACE << "Parse complete";
+          ContentLengthReset();
           return PARSE_OK;
-        } else return PARSE_SHORT;
+        } else
+          return PARSE_SHORT;
       } else if (transfer_encoding_ == CHUNKED) {
-        auto index = buffer_view.find("\r\n", index_);
-        
-        if (index != StringView::npos) {
-          switch (chunk_state_) {
-          case LENGTH: {
+        switch (chunk_state_) {
+        case LENGTH: {
+          auto index = buffer_view.find("\r\n", index_);
+
+          if (index != StringView::npos) {
             auto length_sv = buffer_view.substr_range(index_, index);
             LOG_DEBUG << "chunked length bytes = " << index - index_;
             LOG_DEBUG << "chunked length: " << length_sv;
@@ -117,38 +117,50 @@ auto HttpResponseParser::Parse(kanon::Buffer &buffer) -> ParseResult
               chunk_state_ = LAST_DATA;
             else
               chunk_state_ = DATA;
-          } break;
+          } else {
+            return PARSE_SHORT;
+          }
+        } break;
 
-          case DATA: {
-            /* Chunked data */
-            LOG_DEBUG << "Cached chunked data length=" << index - index_;
-            if (chunk_length_ == index - index_) {
-              index_ = index + 2;
-              chunk_length_ = 0;
-              chunk_state_ = LENGTH;
-              return PARSE_OK;
-            } else {
+        /* Data may contains binary data including "\r\n" sequence,
+         * Can't parse it by finding "\r\n" position */
+        case DATA: {
+          /* Chunked data */
+          LOG_DEBUG << "Cached chunked data length="
+                    << buffer_view.size() - index_;
+          if (chunk_length_ + 2 <= buffer_view.size() - index_) {
+            if (!(buffer_view[index_ + chunk_length_] == '\r' &&
+                  buffer_view[index_ + chunk_length_ + 1] == '\n'))
               return PARSE_ERR;
-            }
-          } break;
 
-          case LAST_DATA: {
-            index_ = index + 2;
+            index_ = index_ + chunk_length_ + 2;
+            chunk_length_ = 0;
+            chunk_state_ = LENGTH;
+            return PARSE_OK;
+          } else {
+            return PARSE_SHORT;
+          }
+        } break;
+
+        case LAST_DATA: {
+          if (buffer_view.size() - index_ >= 2) {
+            if (!(buffer_view[index_ + chunk_length_] == '\r' &&
+                  buffer_view[index_ + chunk_length_ + 1] == '\n'))
+              return PARSE_ERR;
+            index_ = index_ + 2;
             ChunkReset();
             return PARSE_OK;
-          } break;
-          }
-        } else {
-          return PARSE_SHORT;
-        }
+          } else
+            return PARSE_SHORT;
+        } break;
+        } // switch
       } else {
         /* No body */
         phase_ = STATUS_LINE;
         return PARSE_OK;
       }
-    } break;
-    }
-
+    } break; // case BODY
+    }        // switch
   }
 
   assert(false);
