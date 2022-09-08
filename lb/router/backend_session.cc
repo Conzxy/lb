@@ -4,19 +4,12 @@
 #include "lb/http/http_request.h"
 #include "lb/http/http_request_codec.h"
 
-#undef PARSER_DEBUG
-#define PARSER_DEBUG 1
-
-#if PARSER_DEBUG
-#include <iostream>
-#endif
-
 using namespace lb;
 using namespace kanon;
 using namespace http;
 
 #define LOG_SEND_DIRECTION(frontend, backend)                                  \
-  LOG_INFO << "Send" << frontend->GetPeerAddr().ToIpPort() << "->"             \
+  LOG_INFO << "Send direction: " << frontend->GetPeerAddr().ToIpPort() << "->"             \
            << backend->GetPeerAddr().ToIpPort();
 
 BackendSession::BackendSession(EventLoop *loop, InetAddr const &backend_addr,
@@ -37,8 +30,6 @@ BackendSession::BackendSession(EventLoop *loop, InetAddr const &backend_addr,
 
   backend_->SetMessageCallback(
       [this](TcpConnectionPtr const &conn, Buffer &buffer, TimeStamp) {
-#if PARSER_DEBUG
-#endif
         for (;;) {
           switch (parser_.Parse(buffer)) {
           case HttpResponseParser::PARSE_OK: {
@@ -50,9 +41,6 @@ BackendSession::BackendSession(EventLoop *loop, InetAddr const &backend_addr,
             std::string response = buffer.RetrieveAsString(parser_.index());
             parser_.ResetIndex();
 
-#if PARSER_DEBUG
-            LOG_DEBUG << "Response: ";
-#endif
             LOG_DEBUG << "Response length = " << response.size();
 
             LOG_SEND_DIRECTION(conn, frontend);
@@ -77,34 +65,16 @@ BackendSession::BackendSession(EventLoop *loop, InetAddr const &backend_addr,
   backend_->EnableRetry();
 }
 
-void BackendSession::Send(TcpConnectionPtr const &frontend,
-                          OutputBuffer &buffer)
-{
-  LOG_SEND_DIRECTION(frontend, conn_);
-  if (conn_) {
-    frontends_.push_front(frontend);
-    conn_->Send(buffer);
-  } else {
-    LOG_WARN << "Backend connection is not established";
-  }
-}
-
-void BackendSession::Send(TcpConnectionPtr const &frontend, Buffer &buffer)
-{
-  OutputBuffer output;
-  output.Append(buffer.ToStringView());
-
-  Send(frontend, output);
-}
-
-void BackendSession::Send(TcpConnectionPtr const &frontend,
+bool BackendSession::Send(TcpConnectionPtr const &frontend,
                           HttpRequestCodec &codec, HttpRequest &request)
 {
   LOG_SEND_DIRECTION(frontend, conn_);
   if (conn_) {
     frontends_.push_front(frontend);
     codec.Send(conn_, request);
+    return true;
   } else {
     LOG_WARN << "Backend connection is not established";
+    return false;
   }
 }

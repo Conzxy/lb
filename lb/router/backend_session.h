@@ -21,9 +21,8 @@ class BackendSession : kanon::noncopyable {
   BackendSession(EventLoop *loop, InetAddr const &backend_addr,
                  std::string const &name);
 
-  void Send(TcpConnectionPtr const &frontend, OutputBuffer &buffer);
-  void Send(TcpConnectionPtr const &frontend, Buffer &buffer);
-  void Send(TcpConnectionPtr const &frontend, HttpRequestCodec &codec, http::HttpRequest &request);
+  bool Send(TcpConnectionPtr const &frontend, HttpRequestCodec &codec,
+            http::HttpRequest &request);
 
   void Connect()
   {
