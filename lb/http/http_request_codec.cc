@@ -9,8 +9,19 @@ HttpRequestCodec::HttpRequestCodec(TcpConnectionPtr const &conn)
 {
   conn->SetMessageCallback(
       [this](TcpConnectionPtr const &conn, Buffer &buffer, TimeStamp ts) {
-        if (parser_.Parse(buffer, &request_) == HttpParser::kGood) {
-          request_callback_(conn, request_, ts);
+        while (1) {
+          switch (parser_.Parse(buffer, &request_)) {
+          case HttpParser::kGood: {
+            request_callback_(conn, request_, ts);
+          } break;
+          case HttpParser::kError: {
+            LOG_ERROR << "Parse request error";
+            LOG_ERROR << "Error message" << parser_.error().msg;
+            return;
+          }
+          case HttpParser::kShort:
+            return;
+          }
         }
       });
 }
@@ -42,7 +53,7 @@ void HttpRequestCodec::Send(TcpConnectionPtr const &conn,
   output.Append("\r\n");
 
   output.Append(request.body);
-  
+
   LOG_DEBUG << "Readable size = " << output.GetReadableSize();
   conn->Send(output);
 }
