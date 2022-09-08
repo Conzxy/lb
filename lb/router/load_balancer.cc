@@ -11,6 +11,11 @@ LoadBalancer::LoadBalancer(EventLoop *loop, InetAddr const &listen_addr,
   : server_(loop, listen_addr, "LoadBalancer")
   , backends_(std::move(init_servers))
 {
+  LOG_INFO << "Init backends: ";
+  for (auto &backend : backends_) {
+    LOG_INFO << backend.ToIpPort();
+  }
+
   server_.SetThreadInitCallback([this](EventLoop *io_loop) {
     PerThreadData *data = new PerThreadData;
     auto &index = tl_index_.value();
@@ -20,6 +25,7 @@ LoadBalancer::LoadBalancer(EventLoop *loop, InetAddr const &listen_addr,
           io_loop, backends_[i],
           "BackendSession #" + std::to_string(index) +
               "-" + std::to_string(i)));
+      LOG_INFO << "backend[" << i << "] start connect";
       data->backends.back()->Connect();
     }
     pt_backends_.emplace_back(data);
