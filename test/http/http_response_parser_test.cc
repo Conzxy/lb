@@ -54,3 +54,35 @@ TEST(http_response_parser, multiple_response) {
   index = parser.index();
   EXPECT_EQ(second_index, index);
 }
+
+TEST(http_response_parser, chunked_response) {
+  HttpResponseParser parser;
+  HttpResponse response;
+  response.AddHeaderLine(http::HttpStatusCode::k200OK, HttpVersion::kHttp10);
+  response.AddHeader("xxx", "xx");
+  response.AddChunkedTransferHeader();
+  response.AddBlackLine();
+  response.AddChunk("XXXXX");
+  
+  auto buffer = response.GetBuffer();
+
+  std::cout << buffer.ToStringView().ToString();
+  auto index = buffer.GetReadableSize();
+  
+  EXPECT_EQ(HttpResponseParser::PARSE_OK, parser.Parse(buffer));
+  EXPECT_EQ(parser.index(), index);
+  EXPECT_TRUE(parser.IsChunked());
+  parser.ResetIndex();
+
+  HttpResponse last_response;
+  last_response.AddChunk("", 0);
+  buffer = std::move(last_response.GetBuffer());
+  std::cout << buffer.ToStringView().ToString();
+  index = buffer.GetReadableSize();
+
+  EXPECT_EQ(HttpResponseParser::PARSE_OK, parser.Parse(buffer));
+  EXPECT_EQ(parser.index(), index);
+  EXPECT_FALSE(parser.IsChunked());
+  parser.ResetIndex();
+
+}

@@ -71,7 +71,7 @@ public:
   Self& AddChunkedTransferHeader() {
     // Disable length header
     known_length_ = true;
-    chunked = true;
+    chunked_ = true;
     return AddHeader("Transfer-Encoding", "chunked");
   }
 
@@ -116,7 +116,8 @@ public:
 
 
   Self& AddChunk(char const* data, size_t len) {
-    assert(chunked);
+    known_length_ = true;
+    chunked_ = true;
     buffer_.Append(Dec2Hex(len));
     buffer_.Append("\r\n");
     buffer_.Append(data, len);
@@ -173,7 +174,7 @@ private:
   kanon::Buffer buffer_;
   std::vector<char> body_;
   bool known_length_ = false;
-  bool chunked = false;
+  bool chunked_ = false;
 };
 
 HttpResponse GetClientError(
