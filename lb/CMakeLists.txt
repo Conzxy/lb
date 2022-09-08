@@ -1,10 +1,16 @@
 set(TAKINA_DIR ${THIRD_PARTY_DIR}/takina)
+set(XXHASH_DIR ${THIRD_PARTY_DIR}/xxHash)
+
+include_directories(${XXHASH_DIR})
+
+file(GLOB XXHASH_SRC ${XXHASH_DIR}/*.c)
 
 file(GLOB_RECURSE LB_SRC
   algo/*.cc
   http/*.cc
   router/*.cc
   ${TAKINA_DIR}/*.cc  
+  ${XXHASH_SRC}
 )
 
 set(LB_APP_SRC

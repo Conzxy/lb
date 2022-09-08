@@ -70,6 +70,8 @@ macro (GenLib _lib)
   #if (NOT ${BUILD_SHARED_LIBS})
   if (${CMAKE_BUILD_TYPE} STREQUAL "Debug")
     set(lib ${_lib}_debug)
+  else ()
+    set(lib ${_lib})
   endif()
   
   message(STATUS "Source list: ${ARGN}")
