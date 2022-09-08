@@ -9,22 +9,29 @@ using namespace kanon;
 
 bool lb::ParseLbConfig(StringView filename, LoadBalancerConfig &config)
 {
-  auto contents = std::move(toml::parse(filename.ToString()).as_table());
-  
-  std::string lb_algo =
-      std::move(toml::get_or<std::string>(contents.at("balancing_algorithm"), "round-robin"));
+  try {
+    auto contents = std::move(toml::parse(filename.ToString()).as_table());
+    
+    std::string lb_algo =
+        std::move(toml::get_or<std::string>(contents.at("balancing_algorithm"), "round-robin"));
 
-  if (lb_algo == "round-robin") {
-    config.bl_algo_type = BlAlgoType::ROUND_ROBIN;
-  } else if (lb_algo == "consistent_hashing") {
-    config.bl_algo_type = BlAlgoType::CONSISTENT_HASHING;
-  }
+    if (lb_algo == "round-robin") {
+      config.bl_algo_type = BlAlgoType::ROUND_ROBIN;
+    } else if (lb_algo == "consistent_hashing") {
+      config.bl_algo_type = BlAlgoType::CONSISTENT_HASHING;
+    }
 
-  auto servers = std::move(contents.at("servers").as_array());
+    auto servers = std::move(contents.at("servers").as_array());
 
-  for (auto &_server_info : servers) {
-    auto server_info = std::move(_server_info.as_table());
-    config.backend_addrs.emplace_back(toml::get<std::string>(server_info["host"]), server_info["port"].as_integer());
+    for (auto &_server_info : servers) {
+      auto server_info = std::move(_server_info.as_table());
+      auto &endpoint = toml::get<std::string>(server_info["endpoint"]);
+      LOG_DEBUG << endpoint;
+      config.backend_addrs.emplace_back(endpoint);
+    }
+  } catch (std::exception const &ex) {
+    fprintf(stderr, "%s", ex.what());
+    return false;
   }
   return true;
 }

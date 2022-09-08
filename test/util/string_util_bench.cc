@@ -53,7 +53,7 @@ BM_Absl_StrAppend(benchmark::State &state)
   }
 }
 #define BM_STRCAT_DEFINE(func, name) \
-  BENCHMARK(func)->Name(name)->RangeMultiplier(10)->Range(10, 100000)
+  BENCHMARK(func)->Name(name)->RangeMultiplier(2)->Range(10, 10000)
 
 BM_STRCAT_DEFINE(BM_MyStrCat, "util::StrCat");
 BM_STRCAT_DEFINE(BM_StdStrCat, "std::string operator+");
