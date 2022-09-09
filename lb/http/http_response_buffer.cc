@@ -1,4 +1,4 @@
-#include "http_response.h"
+#include "http_response_buffer.h"
 #include "kanon/util/macro.h"
 #include "kanon/util/mem.h"
 
@@ -7,7 +7,7 @@ using namespace std;
 
 namespace http {
 
-Buffer& HttpResponse::GetBuffer() 
+Buffer& HttpResponseBuffer::GetBuffer() 
 {
   if (!known_length_) {
     if (body_.size() != 0) {
@@ -23,11 +23,11 @@ Buffer& HttpResponse::GetBuffer()
   return buffer_;
 }
 
-HttpResponse GetClientError(
+HttpResponseBuffer GetClientError(
   HttpStatusCode status_code,
   StringView msg)
 {
-  HttpResponse response;
+  HttpResponseBuffer response;
   char buf[4096];MemoryZero(buf);
 
   // Content-Length will compute automatically and append
@@ -49,7 +49,7 @@ HttpResponse GetClientError(
     .AddBody("</html>\r\n");
 }
 
-char const* HttpResponse::GetFileType(StringView filename) {
+char const* HttpResponseBuffer::GetFileType(StringView filename) {
   if (filename.ends_with(".pdf")) {
     return "application/pdf";
   } else if (filename.ends_with(".png")) {
@@ -67,7 +67,7 @@ char const* HttpResponse::GetFileType(StringView filename) {
   }
 }
 
-std::string HttpResponse::Dec2Hex(size_t num) {
+std::string HttpResponseBuffer::Dec2Hex(size_t num) {
   static char const hexs[] = "0123456789ABCDEF";
 
   int left = 0;

@@ -17,14 +17,14 @@ namespace http {
 /**
  * Construct a http response
  */
-class HttpResponse {
+class HttpResponseBuffer {
 public:
-  using Self = HttpResponse;
+  using Self = HttpResponseBuffer;
 
   /**
-   * \param known_length If length is unknown, will computed by HttpResponse
+   * \param known_length If length is unknown, will computed by HttpResponseBuffer
    */
-  explicit HttpResponse(const bool known_length = false)
+  explicit HttpResponseBuffer(const bool known_length = false)
     : buffer_()
     , known_length_(known_length)
   { 
@@ -177,7 +177,7 @@ private:
   bool chunked_ = false;
 };
 
-HttpResponse GetClientError(
+HttpResponseBuffer GetClientError(
   HttpStatusCode status_code,
   kanon::StringView msg);
 

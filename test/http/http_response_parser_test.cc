@@ -1,6 +1,6 @@
 #include "lb/http/http_response_parser.h"
 
-#include "lb/http/http_response.h"
+#include "lb/http/http_response_buffer.h"
 
 #include <iostream>
 #include <gtest/gtest.h>
@@ -11,7 +11,7 @@ using namespace kanon;
 TEST(http_response_parser, single_response) {
   HttpResponseParser parser;
 
-  HttpResponse response;
+  HttpResponseBuffer response;
   response.AddHeaderLine(http::HttpStatusCode::k200OK, HttpVersion::kHttp10); 
   response.AddHeader("xx", "xxx");
   response.AddBlackLine();
@@ -28,7 +28,7 @@ TEST(http_response_parser, single_response) {
 
 TEST(http_response_parser, multiple_response) {
   HttpResponseParser parser;
-  HttpResponse response;
+  HttpResponseBuffer response;
   response.AddHeaderLine(http::HttpStatusCode::k200OK, HttpVersion::kHttp10); 
   response.AddHeader("xx", "xxx");
   response.AddBlackLine();
@@ -36,7 +36,7 @@ TEST(http_response_parser, multiple_response) {
   
   auto &buffer = response.GetBuffer(); 
   auto first_index = buffer.GetReadableSize();
-  HttpResponse response2;
+  HttpResponseBuffer response2;
   response2.AddHeaderLine(http::HttpStatusCode::k200OK, HttpVersion::kHttp10); 
   response2.AddHeader("a", "b");
   response2.AddBlackLine();
@@ -57,7 +57,7 @@ TEST(http_response_parser, multiple_response) {
 
 TEST(http_response_parser, chunked_response) {
   HttpResponseParser parser;
-  HttpResponse response;
+  HttpResponseBuffer response;
   response.AddHeaderLine(http::HttpStatusCode::k200OK, HttpVersion::kHttp10);
   response.AddHeader("xxx", "xx");
   response.AddChunkedTransferHeader();
@@ -74,7 +74,7 @@ TEST(http_response_parser, chunked_response) {
   EXPECT_TRUE(parser.IsChunked());
   parser.ResetIndex();
 
-  HttpResponse last_response;
+  HttpResponseBuffer last_response;
   last_response.AddChunk("", 0);
   buffer = std::move(last_response.GetBuffer());
   std::cout << buffer.ToStringView().ToString();
