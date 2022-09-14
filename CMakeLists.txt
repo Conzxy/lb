@@ -66,14 +66,8 @@ include_directories(${PROJECT_SOURCE_DIR}/third-party)
 # it explitly, and the build of static libraries is an option.
 set(BUILD_STATIC_LIBS OFF CACHE BOOL "Build static libraries")
 
-macro (GenLib _lib)
+macro (GenLib lib)
   #if (NOT ${BUILD_SHARED_LIBS})
-  if (${CMAKE_BUILD_TYPE} STREQUAL "Debug")
-    set(lib ${_lib}_debug)
-  else ()
-    set(lib ${_lib})
-  endif()
-  
   message(STATUS "Source list: ${ARGN}")
   if (${BUILD_STATIC_LIBS})
     message(STATUS "Build static library: ${lib}")

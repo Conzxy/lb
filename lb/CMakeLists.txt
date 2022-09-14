@@ -18,7 +18,13 @@ set(LB_APP_SRC
   ${LB_SRC}
 )
 
-GenLib(lb ${LB_SRC})
+if (${CMAKE_BUILD_TYPE} STREQUAL "Debug")
+  set(LB_LIB lb_config)
+else ()
+  set(LB_LIB lb)
+endif ()
+
+GenLib(${LB_LIB} ${LB_SRC})
 
 set(KANON_LIB kanon_base kanon_net)
 GenApplication(load-balancer LB_APP_SRC KANON_LIB)
