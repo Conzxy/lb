@@ -9,6 +9,8 @@ struct LbOption {
   int port = 9999;
   std::string config_filename = "./lb.conf";
   int io_loop_num = 0;
+  bool silent = false;
+  std::string log_dir = "";
 };
 
 void RegisterOptions(LbOption &option);
