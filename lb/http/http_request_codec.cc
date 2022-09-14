@@ -16,7 +16,7 @@ HttpRequestCodec::HttpRequestCodec(TcpConnectionPtr const &conn)
           } break;
           case HttpParser::kError: {
             LOG_ERROR << "Parse request error";
-            LOG_ERROR << "Error message" << parser_.error().msg;
+            LOG_ERROR << "Error message: " << parser_.error().msg;
             return;
           }
           case HttpParser::kShort:
@@ -51,7 +51,9 @@ void HttpRequestCodec::Send(TcpConnectionPtr const &conn,
   }
 
   output.Append("\r\n");
-
+  
+  LOG_DEBUG << "(After headers)Readable size = " << output.GetReadableSize(); 
+  LOG_DEBUG << "Body length = " << request.body.size();
   output.Append(request.body);
 
   LOG_DEBUG << "Readable size = " << output.GetReadableSize();
