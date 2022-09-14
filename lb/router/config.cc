@@ -3,6 +3,8 @@
 #include "kanon/log/logger.h"
 
 #include <toml.hpp>
+#include <toml/into.hpp>
+#include <toml/types.hpp>
 
 using namespace lb;
 using namespace kanon;
@@ -17,17 +19,22 @@ bool lb::ParseLbConfig(StringView filename, LoadBalancerConfig &config)
 
     if (lb_algo == "round-robin") {
       config.bl_algo_type = BlAlgoType::ROUND_ROBIN;
-    } else if (lb_algo == "consistent_hashing") {
+    } else if (lb_algo == "consistent-hashing") {
       config.bl_algo_type = BlAlgoType::CONSISTENT_HASHING;
     }
 
     auto servers = std::move(contents.at("servers").as_array());
 
     for (auto &_server_info : servers) {
-      auto server_info = std::move(_server_info.as_table());
+      auto &server_info = _server_info.as_table();
       auto &endpoint = toml::get<std::string>(server_info["endpoint"]);
-      LOG_DEBUG << endpoint;
-      config.backend_addrs.emplace_back(endpoint);
+      auto name = std::move(toml::get<std::string>(server_info["name"]));
+      // I don't want define the ctor of the ServerConfig
+      config.backends.push_back(ServerConfig{
+        InetAddr(endpoint),
+        std::move(name),
+        static_cast<int>(server_info["vnode"].as_integer()),
+        static_cast<int>(server_info["fail_timeout"].as_integer())});
     }
   } catch (std::exception const &ex) {
     fprintf(stderr, "%s", ex.what());
@@ -58,7 +65,9 @@ void lb::DebugLbConfig(LoadBalancerConfig const &config)
   LOG_DEBUG << "========== Load balancer configuration ==========";
   LOG_DEBUG << "Balancing algorithm: " << BlAlgoType2String(config.bl_algo_type);
   LOG_DEBUG << "servers: ";
-  for (auto &server : config.backend_addrs) {
-    LOG_DEBUG << server.ToIpPort();
+  for (auto &server : config.backends) {
+    LOG_DEBUG << "name: " << server.name;
+    LOG_DEBUG << "addr: " << server.addr.ToIpPort();
+    LOG_DEBUG << "vnode: " << server.vnode;
   }
 }

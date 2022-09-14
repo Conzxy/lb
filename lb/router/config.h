@@ -13,12 +13,19 @@ enum class BlAlgoType : unsigned char {
   CONSISTENT_HASHING,
 };
 
+struct ServerConfig {
+  kanon::InetAddr addr;
+  std::string name;
+  int vnode;
+  int fail_timeout;
+};
+
 /**
  * Config metadata of load balancer
  */
 struct LoadBalancerConfig {
   BlAlgoType bl_algo_type;
-  std::vector<kanon::InetAddr> backend_addrs;
+  std::vector<ServerConfig> backends;
 };
 
 /**
