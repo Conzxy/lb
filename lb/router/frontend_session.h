@@ -12,14 +12,17 @@ namespace lb {
 
 class LoadBalancer;
 
-class FrontendSession : kanon::noncopyable {
+class FrontendSession : public kanon::noncopyable {
   using RequestQueue = std::vector<http::HttpRequest>;
 
  public:
   FrontendSession(kanon::TcpConnectionPtr const &conn,
-                  int index,
                   LoadBalancer &lb);
   
+  ~FrontendSession() noexcept; 
+  
+  FrontendSession(FrontendSession &&) noexcept = default;
+  FrontendSession &operator=(FrontendSession &&) noexcept = default;
   RequestQueue &GetRequestQueue() noexcept
   {
     return request_queue_;
@@ -30,9 +33,14 @@ class FrontendSession : kanon::noncopyable {
     return codec_;
   }
   
-  void SetBackendSession(BackendSession *b) noexcept
+  // void SetBackendSession(BackendSession *b) noexcept
+  // {
+  //   backend_ = b;
+  // }
+  
+  void SetBackendSession(BackendSessionWPtr p) noexcept
   {
-    backend_ = b;
+    backend_ = std::move(p);
   }
 
   void SetBackendConnection(TcpConnectionPtr const &c) noexcept
@@ -40,10 +48,10 @@ class FrontendSession : kanon::noncopyable {
     backend_conn_ = c;
   }
 
-  BackendSession &GetBackendSession() noexcept
-  {
-    return *backend_;
-  }
+  // BackendSession &GetBackendSession() noexcept
+  // {
+  //   return *backend_;
+  // }
 
   TcpConnectionPtr GetBackendConnection() noexcept
   {
@@ -54,7 +62,7 @@ class FrontendSession : kanon::noncopyable {
   LoadBalancer *lb_;
   HttpRequestCodec codec_;
   // LoadBalancer::PerThreadData *pt_data_;
-  BackendSession *backend_;
+  BackendSessionWPtr backend_;
   // TcpConnectionPtr backend_conn_;
   std::weak_ptr<TcpConnection> backend_conn_;
   RequestQueue request_queue_;
