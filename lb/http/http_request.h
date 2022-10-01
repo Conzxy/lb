@@ -14,27 +14,24 @@ struct HttpRequest {
   /*
    * The metadata for parsing header line of a http request
    */
-
-  bool is_static = true; /** Static page */
-  bool is_complex = false; /** Complex URL, e.g. %Hex Hex */
   std::string url; /** The URL part */
   std::string query; /** query string */
   HttpMethod method = HttpMethod::kNotSupport; /** method of header line */
   HttpVersion version = HttpVersion::kNotSupport; /** version code of header line */
 
-  /**
-   * Store the header fields
-   */
-  HeaderMap headers;
+  HeaderMap headers; /** Store the header fields */
 
-  /**
-   * Store the body of a http request
+  std::string body; /**Store the body of a http request */
+  
+  /*
+   * Caching to avoid to search from headers
    */
-  std::string body;
 
   bool is_keep_alive = false; /** Determine if a keep-alive connection */
+  bool is_static = true; /** Static page */
+  bool is_complex = false; /** Complex URL, e.g. %Hex Hex */
 };
 
 } // http
 
-#endif 
+#endif // _KANON_HTTPD_HTTP_REQUEST_H_

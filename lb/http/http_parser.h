@@ -81,6 +81,9 @@ class HttpParser : kanon::noncopyable {
   void Reset() noexcept {
     parse_phase_ = kHeaderLine;
     content_length_ = -1;
+    chunk_state_ = LENGTH;
+    is_chunked_ = false;
+    chunk_length_ = 0;
   }
 
   void SetHeaderMetadata(HttpRequest* request) {
@@ -125,6 +128,11 @@ class HttpParser : kanon::noncopyable {
   }
   
  private:
+  enum ChunkState : unsigned char {
+    LENGTH,
+    DATA,
+    LAST_DATA,
+  };
   /**
    * Main state machine metadata
    */
@@ -135,6 +143,9 @@ class HttpParser : kanon::noncopyable {
    * in case search the fields in headers_
    */
   uint64_t content_length_ = -1;
+  bool is_chunked_ = false; 
+  uint16_t chunk_length_ = 0;
+  ChunkState chunk_state_ = LENGTH;
 
   HttpError error_ = { .code = HttpStatusCode::k400BadRequest };
 };

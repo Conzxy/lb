@@ -30,27 +30,32 @@ void HttpRequestCodec::Send(TcpConnectionPtr const &conn,
                             HttpRequest const &request)
 {
   OutputBuffer output;
-
-  // Append header line
-  std::string header_line =
-      util::StrCat(GetMethodString(request.method), " ", request.url, " ",
-                   GetHttpVersionString(request.version));
-  LOG_DEBUG << "header line = " << header_line;
-  output.Append(header_line);
-  output.Append("\r\n");
-
-  // Append headers
-  std::string header;
-  for (auto &[field, value] : request.headers) {
-    util::StrAppend(header, field, ": ", value);
-    LOG_DEBUG << "header field: " << header;
-    output.Append(header);
+  
+  auto transfer_encoding_field = request.headers.find("Transfer-Encoding");
+  if (transfer_encoding_field == request.headers.end() ||
+      strcasecmp(transfer_encoding_field->second.c_str(), "chunked") == 0) 
+  {
+    // Append header line
+    std::string header_line =
+        util::StrCat(GetMethodString(request.method), " ", request.url, " ",
+                     GetHttpVersionString(request.version));
+    LOG_DEBUG << "header line = " << header_line;
+    output.Append(header_line);
     output.Append("\r\n");
-    /* Reset to reuse space */
-    header.resize(0);
-  }
 
-  output.Append("\r\n");
+    // Append headers
+    std::string header;
+    for (auto &[field, value] : request.headers) {
+      util::StrAppend(header, field, ": ", value);
+      LOG_DEBUG << "header field: " << header;
+      output.Append(header);
+      output.Append("\r\n");
+      /* Reset to reuse space */
+      header.resize(0);
+    }
+
+    output.Append("\r\n");
+  }
   
   LOG_DEBUG << "(After headers)Readable size = " << output.GetReadableSize(); 
   LOG_DEBUG << "Body length = " << request.body.size();

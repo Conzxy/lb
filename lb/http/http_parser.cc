@@ -3,6 +3,8 @@
 #include "http_constant.h"
 #include "http_request.h"
 
+#include "kanon/string/string_view_util.h"
+
 using namespace http;
 
 HttpParser::ParseResult HttpParser::Parse(kanon::Buffer& buffer, HttpRequest* request) {
@@ -60,6 +62,68 @@ HttpParser::ParseResult HttpParser::Parse(kanon::Buffer& buffer, HttpRequest* re
         if (ret == kGood) {
           parse_phase_ = kFinished;
         }
+      }
+      else if (is_chunked_) {
+        auto buffer_view = buffer.ToStringView();
+        switch (chunk_state_) {
+          case LENGTH: {
+            auto index = buffer_view.find("\r\n");
+
+            if (index != StringView::npos) {
+              auto length_sv = buffer_view.substr_range(0, index);
+              LOG_DEBUG << "chunked length: " << length_sv;
+              auto length = StringViewToU32(length_sv, 16);
+              if (!length) {
+                Reset();
+                return kError;
+              }
+
+              chunk_length_ = *length;
+              LOG_DEBUG << "Chunk length = " << chunk_length_;
+              request->body = buffer.RetrieveAsString(length_sv.size() + 2);
+              if (chunk_length_ == 0)
+                chunk_state_ = LAST_DATA;
+              else
+                chunk_state_ = DATA;
+            } else {
+              return kShort;
+            }
+          } break;
+
+          /* Data may contains binary data including "\r\n" sequence,
+           * Can't parse it by finding "\r\n" position */
+          case DATA: {
+            /* Chunked data */
+            if (chunk_length_ <= buffer_view.size() - 2) {
+              if (!(buffer_view[chunk_length_] == '\r' &&
+                    buffer_view[chunk_length_ + 1] == '\n'))
+              {
+                /* FIXME Fill error message */
+                return kError;
+              }
+              
+              request->body += buffer.RetrieveAsString(chunk_length_ + 2);
+              chunk_length_ = 0;
+              chunk_state_ = LENGTH;
+              return kGood;
+            } else {
+              return kShort;
+            }
+          } break;
+
+          case LAST_DATA: {
+            if (buffer_view.size() >= 2) {
+              if (!(buffer_view[chunk_length_] == '\r' &&
+                    buffer_view[chunk_length_ + 1] == '\n'))
+                return kError;
+              request->body.append("\r\n");
+              buffer.AdvanceRead(2);
+              Reset();
+              return kGood;
+            } else
+              return kShort;
+          } break;
+        } // switch
       }
       else {
         parse_phase_ = kFinished;
