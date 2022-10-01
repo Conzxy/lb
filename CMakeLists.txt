@@ -24,11 +24,11 @@ set(CXX_FLAGS
  -Wno-strict-aliasing
  -Werror
  # make non-trivial(but like "trivial") class can reallocate
- -Wno-class-memaccess
+ # -Wno-class-memaccess
  -Wno-implicit-fallthrough
  #-Wconversion
  #-Wshadow
- -Wno-maybe-uninitialized
+ # -Wno-maybe-uninitialized
  -Wwrite-strings # in fact, this is default specified
  #cxx standard 
  -std=c++17
@@ -44,7 +44,10 @@ if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
   list(REMOVE_ITEM CXX_FLAGS "-Wno-return-local-addr")
   list(REMOVE_ITEM CXX_FLAGS "-rdynamic")
   list(APPEND CXX_FLAGS "-Wthread-safety")
+  list(APPEND CXX_FLAGS "-Wno-unused-private-field")
 endif()
+
+message(STATUS "Compiler: ${CMAKE_CXX_COMPILER_ID}")
 
 string(REPLACE ";" " " CMAKE_CXX_FLAGS "${CXX_FLAGS}")
 

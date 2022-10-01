@@ -31,6 +31,8 @@ class BackendSession : kanon::noncopyable {
                  TcpConnectionPtr const &frontend,
                  FrontendSession &frontend_session,
                  int index, LoadBalancer &lb);
+  
+  ~BackendSession() noexcept;
 
   bool Send(TcpConnectionPtr const &frontend, HttpRequestCodec &codec,
             http::HttpRequest &request);

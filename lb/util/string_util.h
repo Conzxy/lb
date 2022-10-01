@@ -63,7 +63,7 @@ size_t StrSize(Args &&... args)
   do {                                                                         \
     size += head.size();                                                       \
     StrAppend_impl(str, size, index, strs...);                                 \
-    assert(index - head.size() >= 0);                                          \
+    assert(index >= head.size());                                          \
     index -= head.size();                                                      \
     memcpy(&str[index], head.data(), head.size());                             \
   } while (0)
@@ -111,7 +111,7 @@ void StrAppend_impl(std::string &str, size_t &size, size_t &index,
   auto len = strlen(head);
   size += len;
   StrAppend_impl(str, size, index, strs...);
-  assert(index - len >= 0);
+  assert(index >= len);
   index -= len;
   memcpy(&str[index], head, len);
 }

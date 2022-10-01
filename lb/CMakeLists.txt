@@ -19,7 +19,7 @@ set(LB_APP_SRC
 )
 
 if (${CMAKE_BUILD_TYPE} STREQUAL "Debug")
-  set(LB_LIB lb_config)
+  set(LB_LIB lb_debug)
 else ()
   set(LB_LIB lb)
 endif ()

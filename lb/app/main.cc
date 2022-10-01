@@ -22,7 +22,7 @@ int main(int argc, char *argv[]) {
   }
 
   LoadBalancer lb(&loop, InetAddr(lboption().port), lbconfig().backends);
-  lb.SetLoopNum(lboption().io_loop_num);
+  lb.SetLoopNum(lboption().thread_num);
 
   lb.Listen();
 

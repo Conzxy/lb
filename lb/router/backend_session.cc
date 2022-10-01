@@ -15,13 +15,6 @@ using namespace http;
   LOG_INFO << "Send direction: " << frontend->GetPeerAddr().ToIpPort() << "->" \
            << backend->GetPeerAddr().ToIpPort();
 
-// BackendSession::BackendSession(EventLoop *loop, InetAddr const &backend_addr,
-//                                std::string const &name, int index,
-//                                LoadBalancer::PerThreadData &pt_data)
-//   : backend_(NewTcpClient(loop, backend_addr, name))
-//   , pt_data_(&pt_data)
-//   , index_(index)
-
 BackendSession::BackendSession(EventLoop *loop, InetAddr const &backend_addr,
                                std::string const &name,
                                TcpConnectionPtr const &frontend,
@@ -34,34 +27,30 @@ BackendSession::BackendSession(EventLoop *loop, InetAddr const &backend_addr,
   , index_(index)
   , lb_(&lb)
 {
-  LOG_DEBUG << "frontend_ ref cnt = " << frontend_.use_count();
-
-  backend_->SetConnectionCallback([this, &frontend_session, name](TcpConnectionPtr const &conn) {
+  backend_->SetConnectionCallback([this, &frontend_session](TcpConnectionPtr const &conn) {
     if (conn->IsConnected()) {
       LOG_INFO << "Connect to backend " << conn->GetPeerAddr().ToIpPort()
                << " successfully";
-      switch (lbconfig().bl_algo_type) {
-        case BlAlgoType::CONSISTENT_HASHING:;
-          /* FIXME */
-          // pt_data_->chash.AddServer(index_, name,
-          //                           lbconfig().backends[index_].vnode);
-      }
-      
+
+      /* If frontend is disconnected before
+       * the backend connection is established,
+       * just disconnect peer. */
       if (!frontend_->IsConnected()) {
         Disconnect();
         return;
       }
 
+      /* Binding connection(frontend, backend) */
       conn_ = conn;
+
+      /* Safe
+       * If backend is disconnected, will return early */
       frontend_session.SetBackendConnection(conn_);
 
       auto &request_queue = frontend_session.GetRequestQueue();
-      LOG_TRACE << name;
-      if (request_queue.empty()) {
-        LOG_WARN << "RequestQueue is empty";
-      }
       for (auto &request : request_queue) {
         auto &header_map = request.headers;
+        /* FIXME Necessary? */
         auto iter = header_map.find("Host");
         if (iter != header_map.end()) {
           iter->second = conn->GetPeerAddr().ToIpPort();
@@ -71,35 +60,35 @@ BackendSession::BackendSession(EventLoop *loop, InetAddr const &backend_addr,
       }
       request_queue.clear();
     } else {
-      LOG_INFO << "Disconnect to backend " << conn->GetPeerAddr().ToIpPort();
-      // switch (lbconfig().bl_algo_type) {
-      //   case BlAlgoType::CONSISTENT_HASHING:
-      //     pt_data_->chash.RemoveServer(name);
-      // }
-      LOG_DEBUG << "conn_ = " << conn_.get();
-      LOG_DEBUG << "conn = " << conn.get();
-      conn_.reset();
+      LOG_INFO << "Disconnect to backend [" << conn->GetName()  << "] - [" << conn->GetPeerAddr().ToIpPort() << "]";
+      /* If connection is setted, indicates the frontend is disconnected
+       * early and backend is forced to disconnect also. */
+      if (conn_) {
+        LOG_DEBUG << "conn_ = " << conn_.get();
+        LOG_DEBUG << "conn = " << conn.get();
+        assert(conn_ == conn);
+        conn_.reset();
+        
+        LOG_INFO << "Backend client ref = " << backend_.use_count();
+        LOG_DEBUG << "frontend_ ref cnt = " << frontend_.use_count();
+        if (frontend_->IsConnected()) {
+          LOG_TRACE << "BackendSession is disconnected early";
+          // frontend_->ForceClose();
+          frontend_->ShutdownWrite();
+        } 
+        
+        frontend_.reset();
+      }
 
-      LOG_DEBUG << "frontend_ ref cnt = " << frontend_.use_count();
-      if (frontend_->IsConnected()) {
-        LOG_TRACE << "BackendSession is disconnected early";
-        // frontend_->ForceClose();
-        frontend_->ShutdownWrite();
-      } 
-      
-      frontend_.reset(); 
-      const auto count = lb_->backend_map_.erase(conn->GetName());
-      assert(name == conn->GetName());
-      assert(count == 1);
-
-      // conn->GetLoop()->QueueToLoop([frontend = frontend_]() {
-      //   if (!frontend) return;
-      //   LOG_DEBUG << "frontend ref = " << frontend.use_count();
-      //   auto frontend_session = *AnyCast<FrontendSession*>(frontend->GetContext());
-      //   if (frontend_session)
-      //     delete frontend_session;
-      // });
-
+      int count = 0;
+      size_t total_backend_cnt = 0;
+      {
+      MutexGuard g(lb_->backend_map_lock_);
+      count = lb_->backend_map_.erase(conn->GetName());
+      total_backend_cnt = lb_->backend_map_.size();
+      }
+      LOG_DEBUG << "backend_map count: " << total_backend_cnt;
+      assert(count == 1); KANON_UNUSED(count);
     }
   });
 
@@ -140,6 +129,8 @@ BackendSession::BackendSession(EventLoop *loop, InetAddr const &backend_addr,
       });
 
   backend_->Connect();
+  // backend_->EnableRetry();
+
   // Passive health checking
   // fail_timer_ = loop->RunEvery(
   //     [this]() {
@@ -159,7 +150,11 @@ BackendSession::BackendSession(EventLoop *loop, InetAddr const &backend_addr,
   //     },
   //     double(lbconfig().backends[index_].fail_timeout) / 1000);
 
-  // backend_->EnableRetry();
+}
+
+BackendSession::~BackendSession() noexcept
+{
+  LOG_INFO << "Backend session is destroyed";
 }
 
 bool BackendSession::Send(TcpConnectionPtr const &frontend,
@@ -171,12 +166,12 @@ bool BackendSession::Send(TcpConnectionPtr const &frontend,
     codec.Send(conn_, request);
     total_request_num_++;
     return true;
-  } else {
-    LOG_TRACE << "Connection is not established";
-    LOG_TRACE << "The request is cached in the queue";
-    LOG_TRACE << "Consume it when connection is established";
-    return false;
-  }
+  } 
+
+  LOG_TRACE << "Connection is not established";
+  LOG_TRACE << "The request is cached in the queue";
+  LOG_TRACE << "Consume it when connection is established";
+  return false;
 }
 
 InetAddr const &BackendSession::GetAddr()

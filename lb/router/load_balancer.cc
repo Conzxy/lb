@@ -8,38 +8,91 @@
 using namespace kanon;
 using namespace lb;
 
+#define LOG_ENDPOINT(conn)                                                     \
+  LOG_INFO << conn->GetPeerAddr().ToIpPort() << "->"                           \
+           << conn->GetLocalAddr().ToIpPort()
+
 LoadBalancer::~LoadBalancer() noexcept 
 {
 
 }
-
-// LoadBalancer::PerThreadData::~PerThreadData() noexcept
-// {
-
-// }
 
 LoadBalancer::LoadBalancer(EventLoop *loop, InetAddr const &listen_addr,
                            std::vector<ServerConfig> init_servers)
   : server_(loop, listen_addr, "LoadBalancer")
   , backends_(std::move(init_servers))
 {
-  // pt_backends_.reserve(1);
+  InitBalancingAlgorithm();
 
-  // server_.SetThreadInitCallback([this](EventLoop *io_loop) {
-  //   PerThreadData *data = new PerThreadData;
-  //   auto &index = tl_index_.value();
-  //   index = pt_backends_.size();
-  //   pt_backends_.emplace_back(data);
-  //   for (size_t i = 0; i < backends_.size(); ++i) {
-  //     data->backends.emplace_back(new BackendSession(
-  //         io_loop, backends_[i].addr,
-  //         util::StrCat("BackendSession #", std::to_string(index), 
-  //             "-", std::to_string(i)), i, *pt_backends_[index]));
-  //     LOG_INFO << "backend[" << i << "] start connect";
-  //     data->backends.back()->Connect();
-  //   }
-  // });
-  
+  server_.SetConnectionCallback([this](TcpConnectionPtr const &conn) {
+    if (conn->IsConnected()) {
+      LOG_ENDPOINT(conn) << " UP";
+
+      /* Select a proper backend and allocate it to a frontend */
+      int index = 0;
+      InetAddr backend_addr;
+      {
+        MutexGuard g(backend_lock_);
+        switch (lbconfig().bl_algo_type) {
+          case BlAlgoType::ROUND_ROBIN:
+          {
+            if (current_ == backends_.size())
+                current_ = 0;
+            index = current_;
+            ++current_;
+          } break;
+          case BlAlgoType::CONSISTENT_HASHING:
+          {
+            index = chash_.QueryServer(conn->GetPeerAddr().ToIpPort());
+          }
+        }
+        backend_addr = backends_[index].addr;
+      } /* Critical section */
+
+      LOG_INFO << "Selected index = " << index;
+      auto frontend_session = new FrontendSession(conn, *this);
+      conn->SetContext(*frontend_session);
+
+      /* backend_session is running in the same loop as frontend_session */
+
+      /* The BackendSession is not owned by the according FrontendSession
+       * i.e. their lifetime are not coupled.
+       */
+      auto backend_name = util::StrCat(conn->GetName(), "-backend");
+      auto backend_session =  std::make_shared<BackendSession>(conn->GetLoop(), backend_addr, backend_name, conn, *frontend_session, index, *this);
+      frontend_session->SetBackendSession(backend_session);
+
+      {
+        MutexGuard g(backend_map_lock_);
+        /* this must be allocated dynamically */
+        backend_map_.emplace(backend_name, std::move(backend_session));
+      } /* Critical Section */
+    } else {
+      LOG_TRACE << "Frontend " << conn->GetName();
+      LOG_ENDPOINT(conn) << " DOWN";
+      
+      // auto frontend_session = *AnyCast<FrontendSession*>(conn->GetContext());
+      auto frontend_session = AnyCast<FrontendSession>(conn->GetContext());
+
+      /* check if backend is active */
+      // auto backend_conn = frontend_session->GetBackendConnection();
+      auto backend_conn = frontend_session->GetBackendConnection();
+      LOG_DEBUG << "Frontend conn ref cnt = " << conn.use_count();
+
+      if (backend_conn && backend_conn->IsConnected()) {
+        LOG_TRACE << "FrontendSession is disconnected early";
+        LOG_DEBUG << "Backend conn ref cnt = " << backend_conn.use_count();
+        // backend_session.Disconnect();
+        backend_conn->ShutdownWrite();
+      }
+
+      delete frontend_session;
+    }
+  });
+}
+
+void LoadBalancer::InitBalancingAlgorithm() 
+{
   // Init balancing algorithm configuration
   switch (lbconfig().bl_algo_type) {
     case BlAlgoType::ROUND_ROBIN:
@@ -56,62 +109,4 @@ LoadBalancer::LoadBalancer(EventLoop *loop, InetAddr const &listen_addr,
     }
   }
 
-#define LOG_ENDPOINT(conn)                                                     \
-  LOG_INFO << conn->GetPeerAddr().ToIpPort() << "->"                           \
-           << conn->GetLocalAddr().ToIpPort()
-
-  server_.SetConnectionCallback([this](TcpConnectionPtr const &conn) {
-    if (conn->IsConnected()) {
-      LOG_ENDPOINT(conn) << " UP";
-      int index = 0;
-      switch (lbconfig().bl_algo_type) {
-        case BlAlgoType::ROUND_ROBIN:
-        {
-          if (current_ == backends_.size())
-              current_ = 0;
-          index = current_;
-          ++current_;
-        } break;
-        case BlAlgoType::CONSISTENT_HASHING:
-        {
-          index = chash_.QueryServer(conn->GetPeerAddr().ToIpPort());
-        }
-      }
-      // LOG_DEBUG << "tl_index = " << tl_index_.value();
-      // conn->SetContext(new FrontendSession(this, conn, *pt_backends_[tl_index_.value()]));
-      auto backend_name = util::StrCat(conn->GetName(), " backend");
-      auto frontend_session = new FrontendSession(conn, index, *this);
-      auto backend_session =  new BackendSession(conn->GetLoop(), backends_[index].addr, backend_name, conn, *frontend_session, index, *this);
-      backend_map_.emplace(backend_name, backend_session);
-      frontend_session->SetBackendSession(backend_session);
-      conn->SetContext(frontend_session);
-    } else {
-      LOG_DEBUG << conn->GetName() << " disconnection handler";
-      LOG_ENDPOINT(conn) << " DOWN";
-      
-      auto frontend_session = *AnyCast<FrontendSession*>(conn->GetContext());
-      auto backend_conn = frontend_session->GetBackendConnection();
-      LOG_DEBUG << "Frontend conn ref cnt = " << conn.use_count();
-      if (backend_conn && backend_conn->IsConnected()) {
-        LOG_TRACE << "FrontendSession is disconnected early";
-        LOG_DEBUG << "Backend conn ref cnt = " << backend_conn.use_count();
-        // backend_session.Disconnect();
-        backend_conn->ShutdownWrite();
-        // conn->GetLoop()->QueueToLoop([backend_conn]() {
-        //   if (backend_conn->IsConnected())
-        //     backend_conn->ForceClose();
-        // });
-      } 
-      delete frontend_session;
-      // else {
-      //   LOG_DEBUG << "Frontend conn ref cnt = " << conn.use_count();
-        // conn->GetLoop()->QueueToLoop([frontend_session, conn]() {
-        //   delete frontend_session;
-        //   conn->SetContext(nullptr);
-        //   LOG_ERROR << "Frontend conn ref cnt = " << conn.use_count();
-        // });
-      // }
-    }
-  });
 }
-
