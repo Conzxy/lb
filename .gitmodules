@@ -1,0 +1,3 @@
+[submodule "third-party/kanon"]
+	path = third-party/kanon
+	url = https://github.com/Conzxy/kanon
