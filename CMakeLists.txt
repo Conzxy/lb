@@ -57,9 +57,11 @@ message(STATUS "BUILD_TYPE: ${CMAKE_BUILD_TYPE}")
 
 set(LB_SOURCE_DIR ${PROJECT_SOURCE_DIR}/lb)
 set(THIRD_PARTY_DIR ${PROJECT_SOURCE_DIR}/third-party)
+set(KANON_DIR ${THIRD_PARTY_DIR}/kanon)
 
 include_directories(${PROJECT_SOURCE_DIR})
 include_directories(${PROJECT_SOURCE_DIR}/third-party)
+include_directories(${KANON_DIR})
 
 # I don't want to use the builtin variable ${BUILD_SHARED_LIBS}
 # since it you don't set it to ON explicitly, then the NOT 
@@ -111,6 +113,6 @@ endmacro()
 message(STATUS "BUILD_ALL_TESTS = ${BUILD_ALL_TESTS}")
 message(STATUS "BUILD_ALL_EXAMPLES = ${BUILD_ALL_EXAMPLES}")
 
+add_subdirectory(third-party)
 add_subdirectory(lb)
 add_subdirectory(test)
-#add_subdirectory(third-party)
