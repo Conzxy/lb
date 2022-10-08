@@ -36,19 +36,30 @@ LoadBalancer::LoadBalancer(EventLoop *loop, InetAddr const &listen_addr,
         switch (lbconfig().bl_algo_type) {
           case BlAlgoType::ROUND_ROBIN:
           {
-            if (current_ == backends_.size())
-                current_ = 0;
+            if (failed_nodes_.size() == backends_.size()) {
+              /* FIXME Don't abort the process */
+              LOG_FATAL << "No backend avaliable";
+            }
+
+            for (;;) {
+              if (current_ == backends_.size())
+                  current_ = 0;
+              if (failed_nodes_.find(current_) != failed_nodes_.end())
+                current_++;
+              else break;
+            }
             index = current_;
             ++current_;
           } break;
           case BlAlgoType::CONSISTENT_HASHING:
           {
-            index = chash_.QueryServer(conn->GetPeerAddr().ToIpPort());
-          }
+            index = chash_.QueryServer(conn->GetPeerAddr().ToIp());
+          } break;
         }
         backend_addr = backends_[index].addr;
       } /* Critical section */
-
+  
+      /* FIXME Consider there are no backends avaliable */
       LOG_INFO << "Selected index = " << index;
       auto frontend_session = new FrontendSession(conn, *this);
       conn->SetContext(*frontend_session);
@@ -59,14 +70,8 @@ LoadBalancer::LoadBalancer(EventLoop *loop, InetAddr const &listen_addr,
        * i.e. their lifetime are not coupled.
        */
       auto backend_name = util::StrCat(conn->GetName(), "-backend");
-      auto backend_session =  std::make_shared<BackendSession>(conn->GetLoop(), backend_addr, backend_name, conn, *frontend_session, index, *this);
+      auto backend_session =  new BackendSession(conn->GetLoop(), backend_addr, backend_name, conn, *frontend_session, index, *this);
       frontend_session->SetBackendSession(backend_session);
-
-      {
-        MutexGuard g(backend_map_lock_);
-        /* this must be allocated dynamically */
-        backend_map_.emplace(backend_name, std::move(backend_session));
-      } /* Critical Section */
     } else {
       LOG_TRACE << "Frontend " << conn->GetName();
       LOG_ENDPOINT(conn) << " DOWN";

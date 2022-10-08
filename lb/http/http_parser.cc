@@ -277,9 +277,9 @@ HttpParser::ParseResult HttpParser::ParseHeaderLine(StringView line, HttpRequest
     return kError;
   }
 
-  if (request->is_complex) {
-    ParseComplexUrl(request);
-  }
+  // if (request->is_complex) {
+  //   ParseComplexUrl(request);
+  // }
 
   return kGood;
 }

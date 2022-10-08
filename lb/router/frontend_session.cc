@@ -14,15 +14,16 @@ FrontendSession::FrontendSession(TcpConnectionPtr const &conn,
                                  LoadBalancer &lb)
   : lb_(&lb)
   , codec_(conn)
-  , backend_()
+  , backend_conn_()
 {
   codec_.SetRequestCallback(
       [this](TcpConnectionPtr const &conn, HttpRequest &request, TimeStamp) {
-        auto backend_conn_sptr = backend_conn_.lock();
-        auto backend_sptr = backend_.lock();
+        // auto backend_conn_sptr = backend_conn_.lock();
+        // auto backend_sptr = backend_.lock();
 
         /* If backend is down, just cache */
-        if (backend_sptr && backend_sptr->Send(conn, codec_, request)) {
+        if (backend_conn_ && backend_conn_->IsConnected() &&
+            backend_->Send(conn, codec_, request)) {
           LOG_TRACE << "Send OK";
         } else {
           request_queue_.push_back(std::move(request));

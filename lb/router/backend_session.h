@@ -22,10 +22,6 @@ class FrontendSession;
 
 class BackendSession : kanon::noncopyable {
  public:
-  // BackendSession(EventLoop *loop, InetAddr const &backend_addr,
-  //                std::string const &name, int index, 
-  //                LoadBalancer::PerThreadData &pt_data);
-  
   BackendSession(EventLoop *loop, InetAddr const &backend_addr,
                  std::string const &name, 
                  TcpConnectionPtr const &frontend,
@@ -50,17 +46,21 @@ class BackendSession : kanon::noncopyable {
   
   TcpConnectionPtr const &GetConnection() noexcept { return conn_; }
   bool IsFailed() const noexcept { return is_fail_; }
+
+  void HandleFailed();
+  void HandleRecover();
+
+  void HandleDisconnet();
  private:
   TcpClientPtr backend_;
   TcpConnectionPtr conn_;
-  // LoadBalancer::PerThreadData *pt_data_;
   http::HttpResponseParser parser_;
-  // std::deque<TcpConnectionPtr> frontends_;
   TcpConnectionPtr frontend_;
-  // std::weak_ptr<kanon::TcpConnection> frontend_;
-  kanon::optional<kanon::TimerId> fail_timer_;
-  bool is_fail_;
+
   /* Used for health checking */
+  kanon::optional<kanon::TimerId> fail_timer_;
+  kanon::optional<kanon::TimerId> conn_timer_;
+  bool is_fail_ = false;
   int total_request_num_{0};
   int success_request_num_{0};
   int index_;

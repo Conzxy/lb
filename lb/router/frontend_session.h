@@ -23,6 +23,7 @@ class FrontendSession : public kanon::noncopyable {
   
   FrontendSession(FrontendSession &&) noexcept = default;
   FrontendSession &operator=(FrontendSession &&) noexcept = default;
+
   RequestQueue &GetRequestQueue() noexcept
   {
     return request_queue_;
@@ -33,38 +34,26 @@ class FrontendSession : public kanon::noncopyable {
     return codec_;
   }
   
-  // void SetBackendSession(BackendSession *b) noexcept
-  // {
-  //   backend_ = b;
-  // }
-  
-  void SetBackendSession(BackendSessionWPtr p) noexcept
+  void SetBackendSession(BackendSession *b) noexcept
   {
-    backend_ = std::move(p);
+    backend_ = b;
   }
-
+  
   void SetBackendConnection(TcpConnectionPtr const &c) noexcept
   {
     backend_conn_ = c;
   }
 
-  // BackendSession &GetBackendSession() noexcept
-  // {
-  //   return *backend_;
-  // }
-
-  TcpConnectionPtr GetBackendConnection() noexcept
+  TcpConnectionPtr &GetBackendConnection() noexcept
   {
-    return backend_conn_.lock();
+    return backend_conn_;
   }
 
  private:
   LoadBalancer *lb_;
   HttpRequestCodec codec_;
-  // LoadBalancer::PerThreadData *pt_data_;
-  BackendSessionWPtr backend_;
-  // TcpConnectionPtr backend_conn_;
-  std::weak_ptr<TcpConnection> backend_conn_;
+  BackendSession *backend_;
+  TcpConnectionPtr backend_conn_;
   RequestQueue request_queue_;
 };
 } // namespace lb

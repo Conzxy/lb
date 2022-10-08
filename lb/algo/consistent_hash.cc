@@ -46,9 +46,9 @@ auto ConsistentHash::QueryServer(Key const &key) -> Node
   HashValue node_hash_value = 0;
   if (closest_node_iter == hash_ring_set_.end()) {
     node_hash_value = *hash_ring_set_.begin();
+  } else {
+    node_hash_value = *closest_node_iter;
   }
-
-  node_hash_value = *closest_node_iter;
 
   /* Search if this is a virtual node */
   auto vnode_iter = vnode_map_.find(node_hash_value);

@@ -42,10 +42,11 @@ void HttpRequestCodec::Send(TcpConnectionPtr const &conn,
     LOG_DEBUG << "header line = " << header_line;
     output.Append(header_line);
     output.Append("\r\n");
-
+    
     // Append headers
     std::string header;
-    for (auto &[field, value] : request.headers) {
+    auto &header_map = request.headers;
+    for (auto &[field, value] : header_map) {
       util::StrAppend(header, field, ": ", value);
       LOG_DEBUG << "header field: " << header;
       output.Append(header);

@@ -8,7 +8,6 @@
 
 #include "lb/algo/consistent_hash.h"
 #include "config.h"
-#include "type.h"
 
 namespace lb {
 
@@ -47,11 +46,11 @@ class LoadBalancer : kanon::noncopyable {
 
   kanon::MutexLock backend_lock_;
   std::vector<ServerConfig> backends_ GUARDED_BY(backend_lock_);
+
   size_t current_ GUARDED_BY(backend_lock_) = 0;
-  ConsistentHash chash_ GUARDED_BY(backend_lock_);
+  std::unordered_set<size_t> failed_nodes_ GUARDED_BY(backend_lock_);
   
-  kanon::MutexLock backend_map_lock_;
-  std::unordered_map<std::string, BackendSessionSPtr> backend_map_ GUARDED_BY(backend_map_lock_);
+  ConsistentHash chash_ GUARDED_BY(backend_lock_);
 };
 } // namespace lb
 
