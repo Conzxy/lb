@@ -58,9 +58,11 @@ message(STATUS "BUILD_TYPE: ${CMAKE_BUILD_TYPE}")
 set(LB_SOURCE_DIR ${PROJECT_SOURCE_DIR}/lb)
 set(THIRD_PARTY_DIR ${PROJECT_SOURCE_DIR}/third-party)
 set(KANON_DIR ${THIRD_PARTY_DIR}/kanon)
+set(TOML11_DIR ${THIRD_PARTY_DIR}/toml11)
 
 include_directories(${PROJECT_SOURCE_DIR})
 include_directories(${PROJECT_SOURCE_DIR}/third-party)
+include_directories(${TOML11_DIR})
 include_directories(${KANON_DIR})
 
 # I don't want to use the builtin variable ${BUILD_SHARED_LIBS}

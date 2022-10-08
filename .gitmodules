@@ -1,3 +1,6 @@
 [submodule "third-party/kanon"]
 	path = third-party/kanon
 	url = https://github.com/Conzxy/kanon
+[submodule "third-party/toml11"]
+	path = third-party/toml11
+	url = https://github.com/ToruNiina/toml11
